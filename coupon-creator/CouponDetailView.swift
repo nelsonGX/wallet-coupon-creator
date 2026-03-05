@@ -123,20 +123,19 @@ struct CouponDetailView: View {
     private var actionSection: some View {
         VStack(spacing: 12) {
             // Add to Apple Wallet
-            Button {
+            AddPassToWalletButton {
                 addToWallet()
-            } label: {
+            }
+            .addPassToWalletButtonStyle(.blackOutline)
+            .frame(maxWidth: .infinity)
+            .frame(height: 44)
+            .clipShape(Capsule())
+            .disabled(isLoadingPass)
+            .overlay {
                 if isLoadingPass {
                     ProgressView()
-                        .frame(maxWidth: .infinity)
-                } else {
-                    Label("Add to Apple Wallet", systemImage: "wallet.pass")
-                        .frame(maxWidth: .infinity)
                 }
             }
-            .buttonStyle(.borderedProminent)
-            .tint(.black)
-            .disabled(isLoadingPass)
 
             if !currentCoupon.isFullyUsed {
                 Button {

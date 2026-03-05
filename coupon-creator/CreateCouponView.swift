@@ -88,8 +88,6 @@ struct CreateCouponView: View {
                 Section("Icon") {
                     iconPickerSection
 
-                    Divider()
-
                     // Custom icon upload
                     HStack {
                         PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
