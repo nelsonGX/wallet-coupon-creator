@@ -39,6 +39,7 @@ struct EditCouponView: View {
     @State private var termsAndConditions: String
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var iconImageData: Data?
+    @State private var imageToCrop: UIImage?
 
     @State private var isSaving = false
     @State private var errorMessage: String?
@@ -142,8 +143,9 @@ struct EditCouponView: View {
                 }
                 .onChange(of: selectedPhotoItem) { _, newItem in
                     Task {
-                        if let data = try? await newItem?.loadTransferable(type: Data.self) {
-                            iconImageData = data
+                        if let data = try? await newItem?.loadTransferable(type: Data.self),
+                           let uiImage = UIImage(data: data) {
+                            imageToCrop = uiImage
                         }
                     }
                 }

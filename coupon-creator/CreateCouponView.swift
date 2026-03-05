@@ -38,6 +38,7 @@ struct CreateCouponView: View {
     @State private var showIconPicker = false
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var iconImageData: Data?
+    @State private var imageToCrop: UIImage?
 
     @State private var isCreating = false
     @State private var passToAdd: PKPass?
@@ -113,8 +114,9 @@ struct CreateCouponView: View {
                 }
                 .onChange(of: selectedPhotoItem) { _, newItem in
                     Task {
-                        if let data = try? await newItem?.loadTransferable(type: Data.self) {
-                            iconImageData = data
+                        if let data = try? await newItem?.loadTransferable(type: Data.self),
+                           let uiImage = UIImage(data: data) {
+                            imageToCrop = uiImage
                         }
                     }
                 }
@@ -153,6 +155,16 @@ struct CreateCouponView: View {
                 Button("OK") {}
             } message: {
                 Text(errorMessage ?? "An unknown error occurred")
+            }
+            .sheet(isPresented: Binding(
+                get: { imageToCrop != nil },
+                set: { if !$0 { imageToCrop = nil } }
+            )) {
+                if let image = imageToCrop {
+                    IconCropperView(image: image) { croppedData in
+                        iconImageData = croppedData
+                    }
+                }
             }
         }
     }
