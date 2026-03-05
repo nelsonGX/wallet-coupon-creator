@@ -90,11 +90,9 @@ class CouponStore {
         return try WalletPassService.createPKPass(from: data)
     }
 
-    /// Get .pkpass file URL for sharing via AirDrop
-    func getPassFileURL(for coupon: Coupon) async throws -> URL {
-        let icon = coupon.iconImageData.flatMap { UIImage(data: $0) }
-        let data = try await WalletPassService.signPass(for: coupon, icon: icon)
-        return try WalletPassService.saveTempPassFile(data: data, couponID: coupon.id)
+    /// Create a one-time share link for a coupon's wallet pass
+    func createShareLink(for coupon: Coupon) async throws -> URL {
+        try await WalletPassService.createShareLink(for: coupon)
     }
 
     /// Use a coupon and update the wallet pass on the server

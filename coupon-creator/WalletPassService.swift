@@ -90,12 +90,39 @@ enum WalletPassService {
         try PKPass(data: data)
     }
 
-    /// Save .pkpass data to a temporary file for sharing
-    static func saveTempPassFile(data: Data, couponID: UUID) throws -> URL {
-        let tempDir = FileManager.default.temporaryDirectory
-        let fileURL = tempDir.appendingPathComponent("\(couponID.uuidString).pkpass")
-        try data.write(to: fileURL)
-        return fileURL
+    /// Response from the create-share-link endpoint
+    private struct ShareLinkResponse: Decodable {
+        let token: String
+    }
+
+    /// Create a one-time share link for a pass identified by its serial number (coupon ID)
+    static func createShareLink(for coupon: Coupon) async throws -> URL {
+        let serialNumber = coupon.id.uuidString
+        guard let url = URL(string: "\(baseURL)/api/create-share-link/\(serialNumber)") else {
+            throw WalletPassError.invalidURL
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw WalletPassError.invalidResponse
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            let errorBody = String(data: data, encoding: .utf8) ?? "Unknown error"
+            throw WalletPassError.serverError(statusCode: httpResponse.statusCode, message: errorBody)
+        }
+
+        let decoded = try JSONDecoder().decode(ShareLinkResponse.self, from: data)
+
+        guard let shareURL = URL(string: "\(baseURL)/api/share/\(decoded.token)") else {
+            throw WalletPassError.invalidURL
+        }
+
+        return shareURL
     }
 
     // MARK: - Private

@@ -7,6 +7,7 @@
 
 import SwiftUI
 import PassKit
+import UIKit
 
 struct CouponDetailView: View {
     @Environment(CouponStore.self) private var store
@@ -21,7 +22,8 @@ struct CouponDetailView: View {
     @State private var isLoadingPass = false
     @State private var errorMessage: String?
     @State private var showError = false
-    @State private var sharePassURL: URL?
+    @State private var isLoadingShare = false
+    @State private var shareURL: URL?
 
     private var currentCoupon: Coupon {
         store.coupons.first(where: { $0.id == coupon.id }) ?? coupon
@@ -78,6 +80,9 @@ struct CouponDetailView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Reset usage count to 0?")
+        }
+        .sheet(item: $shareURL) { url in
+            ActivityView(activityItems: [url])
         }
         .alert("Error", isPresented: $showError) {
             Button("OK") {}
@@ -153,21 +158,19 @@ struct CouponDetailView: View {
                 .buttonStyle(.bordered)
             }
 
-            if let sharePassURL {
-                ShareLink(item: sharePassURL) {
+            Button {
+                sharePass()
+            } label: {
+                if isLoadingShare {
+                    ProgressView()
+                        .frame(maxWidth: .infinity)
+                } else {
                     Label("Share Pass", systemImage: "square.and.arrow.up")
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.bordered)
-            } else {
-                Button {
-                    prepareSharePass()
-                } label: {
-                    Label("Share Pass...", systemImage: "square.and.arrow.up")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
             }
+            .buttonStyle(.bordered)
+            .disabled(isLoadingShare)
         }
         .padding(.horizontal)
     }
@@ -254,17 +257,17 @@ struct CouponDetailView: View {
         }
     }
 
-    private func prepareSharePass() {
-        isLoadingPass = true
+    private func sharePass() {
+        isLoadingShare = true
         Task {
             do {
-                let url = try await store.getPassFileURL(for: currentCoupon)
-                sharePassURL = url
+                let url = try await store.createShareLink(for: currentCoupon)
+                shareURL = url
             } catch {
                 errorMessage = error.localizedDescription
                 showError = true
             }
-            isLoadingPass = false
+            isLoadingShare = false
         }
     }
 }
@@ -285,3 +288,17 @@ private struct InfoRow: View {
         .font(.subheadline)
     }
 }
+extension URL: @retroactive Identifiable {
+    public var id: String { absoluteString }
+}
+
+private struct ActivityView: UIViewControllerRepresentable {
+    let activityItems: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+
