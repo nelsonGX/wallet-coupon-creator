@@ -24,6 +24,7 @@ enum WalletPassService {
         let couponID: String
         let backgroundColor: ColorComponents
         let foregroundColor: ColorComponents
+        let labelColor: ColorComponents
         let description: String
         let expirationDate: String?
         let termsAndConditions: String?
@@ -61,6 +62,11 @@ enum WalletPassService {
                 red: coupon.foregroundColor.red,
                 green: coupon.foregroundColor.green,
                 blue: coupon.foregroundColor.blue
+            ),
+            labelColor: .init(
+                red: coupon.labelColor.red,
+                green: coupon.labelColor.green,
+                blue: coupon.labelColor.blue
             ),
             description: coupon.description,
             expirationDate: coupon.expirationDate.map { isoFormatter.string(from: $0) },

@@ -89,6 +89,7 @@ struct Coupon: Identifiable, Codable {
     var organizationName: String
     var backgroundColor: CouponColor
     var foregroundColor: CouponColor
+    var labelColor: CouponColor
     var category: CouponCategory
     var iconName: String
     var termsAndConditions: String
@@ -120,6 +121,7 @@ struct Coupon: Identifiable, Codable {
         organizationName: String = "",
         backgroundColor: CouponColor = CouponColor(red: 0.2, green: 0.5, blue: 0.9),
         foregroundColor: CouponColor = CouponColor(red: 1, green: 1, blue: 1),
+        labelColor: CouponColor = CouponColor(red: 1, green: 1, blue: 1),
         category: CouponCategory = .other,
         iconName: String = "tag.fill",
         termsAndConditions: String = ""
@@ -137,6 +139,7 @@ struct Coupon: Identifiable, Codable {
         self.organizationName = organizationName
         self.backgroundColor = backgroundColor
         self.foregroundColor = foregroundColor
+        self.labelColor = labelColor
         self.category = category
         self.iconName = iconName
         self.termsAndConditions = termsAndConditions
@@ -146,7 +149,7 @@ struct Coupon: Identifiable, Codable {
     enum CodingKeys: String, CodingKey {
         case id, title, description, discount, useCount, maxUse
         case isRechargeable, keepAfterUsedUp, createdDate, expirationDate
-        case organizationName, backgroundColor, foregroundColor
+        case organizationName, backgroundColor, foregroundColor, labelColor
         case category, iconName, termsAndConditions
     }
 
@@ -165,6 +168,7 @@ struct Coupon: Identifiable, Codable {
         organizationName = try container.decode(String.self, forKey: .organizationName)
         backgroundColor = try container.decode(CouponColor.self, forKey: .backgroundColor)
         foregroundColor = try container.decode(CouponColor.self, forKey: .foregroundColor)
+        labelColor = try container.decode(CouponColor.self, forKey: .labelColor)
         category = try container.decodeIfPresent(CouponCategory.self, forKey: .category) ?? .other
         iconName = try container.decodeIfPresent(String.self, forKey: .iconName) ?? "tag.fill"
         termsAndConditions = try container.decodeIfPresent(String.self, forKey: .termsAndConditions) ?? ""

@@ -17,6 +17,10 @@ struct CouponCardView: View {
     private var bgColor: Color {
         Color(red: coupon.backgroundColor.red, green: coupon.backgroundColor.green, blue: coupon.backgroundColor.blue)
     }
+    
+    private var lgColor: Color {
+        Color(red: coupon.labelColor.red, green: coupon.labelColor.green, blue: coupon.labelColor.blue)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {

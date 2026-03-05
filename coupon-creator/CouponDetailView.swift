@@ -155,7 +155,7 @@ struct CouponDetailView: View {
 
             if let sharePassURL {
                 ShareLink(item: sharePassURL) {
-                    Label("Share Pass via AirDrop", systemImage: "square.and.arrow.up")
+                    Label("Share Pass", systemImage: "square.and.arrow.up")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
@@ -163,7 +163,7 @@ struct CouponDetailView: View {
                 Button {
                     prepareSharePass()
                 } label: {
-                    Label("Prepare Share Link", systemImage: "square.and.arrow.up")
+                    Label("Share Pass...", systemImage: "square.and.arrow.up")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)

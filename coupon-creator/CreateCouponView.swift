@@ -27,6 +27,9 @@ struct CreateCouponView: View {
     @State private var fgRed = 1.0
     @State private var fgGreen = 1.0
     @State private var fgBlue = 1.0
+    @State private var lbRed = 1.0
+    @State private var lbGreen = 1.0
+    @State private var lbBlue = 1.0
     @State private var category: CouponCategory = .other
     @State private var iconName = "tag.fill"
     @State private var termsAndConditions = ""
@@ -84,6 +87,7 @@ struct CreateCouponView: View {
                 Section("Appearance") {
                     ColorPicker("Background Color", selection: backgroundColorBinding)
                     ColorPicker("Text Color", selection: foregroundColorBinding)
+                    ColorPicker("Title Color", selection: labelColorBinding)
                 }
             }
             .navigationTitle("Create Coupon")
@@ -230,6 +234,19 @@ struct CreateCouponView: View {
     private var foregroundColorBinding: Binding<Color> {
         Binding(
             get: { Color(red: fgRed, green: fgGreen, blue: fgBlue) },
+            set: { newColor in
+                if let components = newColor.cgColor?.components, components.count >= 3 {
+                    fgRed = Double(components[0])
+                    fgGreen = Double(components[1])
+                    fgBlue = Double(components[2])
+                }
+            }
+        )
+    }
+    
+    private var labelColorBinding: Binding<Color> {
+        Binding(
+            get: { Color(red: lbRed, green: lbGreen, blue: lbBlue) },
             set: { newColor in
                 if let components = newColor.cgColor?.components, components.count >= 3 {
                     fgRed = Double(components[0])
