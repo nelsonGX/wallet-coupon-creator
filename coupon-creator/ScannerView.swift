@@ -17,6 +17,7 @@ struct ScannerView: View {
     @State private var showScannedCoupon = false
     @State private var scanError: String?
     @State private var showError = false
+    @State private var isScannerActive = true
 
     var body: some View {
         NavigationStack {
@@ -24,7 +25,8 @@ struct ScannerView: View {
                 if DataScannerViewController.isSupported {
                     ZStack {
                         DataScannerRepresentable(
-                            onScan: handleScan
+                            onScan: handleScan,
+                            isActive: isScannerActive
                         )
                         .ignoresSafeArea()
 
@@ -38,13 +40,14 @@ struct ScannerView: View {
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $showScannedCoupon, onDismiss: {
                 scannedCoupon = nil
+                isScannerActive = true
             }) {
                 if let coupon = scannedCoupon {
                     ScannedCouponSheet(coupon: coupon)
                 }
             }
             .alert("Scan Error", isPresented: $showError) {
-                Button("OK") {}
+                Button("OK") { isScannerActive = true }
             } message: {
                 Text(scanError ?? "Unable to read QR code")
             }
@@ -80,6 +83,8 @@ struct ScannerView: View {
     private func handleScan(_ payload: String) {
         guard scannedCoupon == nil else { return }
 
+        isScannerActive = false
+
         if let couponID = UUID(uuidString: payload),
            let coupon = store.findCoupon(byID: couponID) {
             scannedCoupon = coupon
@@ -97,13 +102,14 @@ struct ScannerView: View {
 
 struct DataScannerRepresentable: UIViewControllerRepresentable {
     let onScan: (String) -> Void
+    var isActive: Bool
 
     func makeUIViewController(context: Context) -> DataScannerViewController {
         let scanner = DataScannerViewController(
             recognizedDataTypes: [.barcode(symbologies: [.qr])],
-            qualityLevel: .balanced,
+            qualityLevel: .accurate,
             recognizesMultipleItems: false,
-            isHighFrameRateTrackingEnabled: false,
+            isHighFrameRateTrackingEnabled: true,
             isHighlightingEnabled: true
         )
         scanner.delegate = context.coordinator
@@ -111,8 +117,15 @@ struct DataScannerRepresentable: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ uiViewController: DataScannerViewController, context: Context) {
-        if !uiViewController.isScanning {
-            try? uiViewController.startScanning()
+        if isActive {
+            if !uiViewController.isScanning {
+                context.coordinator.hasScanned = false
+                try? uiViewController.startScanning()
+            }
+        } else {
+            if uiViewController.isScanning {
+                uiViewController.stopScanning()
+            }
         }
     }
 
@@ -122,23 +135,26 @@ struct DataScannerRepresentable: UIViewControllerRepresentable {
 
     class Coordinator: NSObject, DataScannerViewControllerDelegate {
         let onScan: (String) -> Void
-        private var hasScanned = false
+        var hasScanned = false
 
         init(onScan: @escaping (String) -> Void) {
             self.onScan = onScan
         }
 
-        func dataScanner(_ dataScanner: DataScannerViewController, didTapOn item: RecognizedItem) {
+        func dataScanner(_ dataScanner: DataScannerViewController, didAdd addedItems: [RecognizedItem], allItems: [RecognizedItem]) {
             guard !hasScanned else { return }
-            switch item {
-            case .barcode(let barcode):
-                if let payload = barcode.payloadStringValue {
-                    hasScanned = true
-                    dataScanner.stopScanning()
-                    onScan(payload)
+            for item in addedItems {
+                switch item {
+                case .barcode(let barcode):
+                    if let payload = barcode.payloadStringValue {
+                        hasScanned = true
+                        dataScanner.stopScanning()
+                        onScan(payload)
+                        return
+                    }
+                default:
+                    break
                 }
-            default:
-                break
             }
         }
     }

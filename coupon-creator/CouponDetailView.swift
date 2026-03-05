@@ -235,8 +235,7 @@ struct CouponDetailView: View {
     private func useCouponAndUpdate() {
         Task {
             do {
-                let pass = try await store.useCouponAndUpdatePass(currentCoupon)
-                passToAdd = pass
+                _ = try await store.useCouponAndUpdatePass(currentCoupon)
             } catch {
                 errorMessage = error.localizedDescription
                 showError = true
@@ -247,8 +246,7 @@ struct CouponDetailView: View {
     private func rechargeCouponAndUpdate() {
         Task {
             do {
-                let pass = try await store.rechargeCouponAndUpdatePass(currentCoupon)
-                passToAdd = pass
+                _ = try await store.rechargeCouponAndUpdatePass(currentCoupon)
             } catch {
                 errorMessage = error.localizedDescription
                 showError = true

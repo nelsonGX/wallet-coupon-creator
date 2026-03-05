@@ -52,12 +52,6 @@ class CouponStore {
         if coupons[index].useCount < coupons[index].maxUse {
             coupons[index].useCount += 1
             save()
-
-            // Remove if fully used and not keeping
-            if coupons[index].isFullyUsed && !coupons[index].keepAfterUsedUp {
-                coupons.remove(at: index)
-                save()
-            }
             return true
         }
         return false

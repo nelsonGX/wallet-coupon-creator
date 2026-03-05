@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import PassKit
 
 struct EditCouponView: View {
     @Environment(CouponStore.self) private var store
@@ -38,7 +37,6 @@ struct EditCouponView: View {
     @State private var termsAndConditions: String
 
     @State private var isSaving = false
-    @State private var passToAdd: PKPass?
     @State private var errorMessage: String?
     @State private var showError = false
 
@@ -138,12 +136,6 @@ struct EditCouponView: View {
                 }
             }
             .disabled(isSaving)
-            .sheet(item: $passToAdd) { pass in
-                WalletPassSheet(pass: pass) { _ in
-                    passToAdd = nil
-                    dismiss()
-                }
-            }
             .alert("Error", isPresented: $showError) {
                 Button("OK") { dismiss() }
             } message: {
@@ -269,8 +261,8 @@ struct EditCouponView: View {
         isSaving = true
         Task {
             do {
-                let pass = try await store.updateWalletPass(for: updated)
-                passToAdd = pass
+                _ = try await store.updateWalletPass(for: updated)
+                dismiss()
             } catch {
                 errorMessage = "Saved locally. Server update failed: \(error.localizedDescription)"
                 showError = true
