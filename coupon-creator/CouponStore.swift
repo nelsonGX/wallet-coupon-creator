@@ -8,6 +8,7 @@
 import Foundation
 import SwiftUI
 import PassKit
+import UIKit
 
 @Observable
 class CouponStore {
@@ -77,19 +78,22 @@ class CouponStore {
 
     /// Sign a new pass and return a PKPass ready to add to wallet
     func signWalletPass(for coupon: Coupon) async throws -> PKPass {
-        let data = try await WalletPassService.signPass(for: coupon)
+        let icon = coupon.iconImageData.flatMap { UIImage(data: $0) }
+        let data = try await WalletPassService.signPass(for: coupon, icon: icon)
         return try WalletPassService.createPKPass(from: data)
     }
 
     /// Update a pass on the server and return a PKPass ready to add to wallet
     func updateWalletPass(for coupon: Coupon) async throws -> PKPass {
-        let data = try await WalletPassService.updatePass(for: coupon)
+        let icon = coupon.iconImageData.flatMap { UIImage(data: $0) }
+        let data = try await WalletPassService.updatePass(for: coupon, icon: icon)
         return try WalletPassService.createPKPass(from: data)
     }
 
     /// Get .pkpass file URL for sharing via AirDrop
     func getPassFileURL(for coupon: Coupon) async throws -> URL {
-        let data = try await WalletPassService.signPass(for: coupon)
+        let icon = coupon.iconImageData.flatMap { UIImage(data: $0) }
+        let data = try await WalletPassService.signPass(for: coupon, icon: icon)
         return try WalletPassService.saveTempPassFile(data: data, couponID: coupon.id)
     }
 

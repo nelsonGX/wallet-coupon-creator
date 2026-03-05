@@ -6,6 +6,8 @@
 //
 
 import SwiftUI
+import PhotosUI
+import UIKit
 
 struct EditCouponView: View {
     @Environment(CouponStore.self) private var store
@@ -35,6 +37,8 @@ struct EditCouponView: View {
     @State private var category: CouponCategory
     @State private var iconName: String
     @State private var termsAndConditions: String
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var iconImageData: Data?
 
     @State private var isSaving = false
     @State private var errorMessage: String?
@@ -63,6 +67,7 @@ struct EditCouponView: View {
         _lbBlue = State(initialValue: coupon.labelColor.blue)
         _category = State(initialValue: coupon.category)
         _iconName = State(initialValue: coupon.iconName)
+        _iconImageData = State(initialValue: coupon.iconImageData)
         _termsAndConditions = State(initialValue: coupon.termsAndConditions)
     }
 
@@ -110,6 +115,37 @@ struct EditCouponView: View {
 
                 Section("Icon") {
                     iconPickerSection
+
+                    Divider()
+
+                    // Custom icon upload
+                    HStack {
+                        PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                            Label("Upload Custom Icon", systemImage: "photo.on.rectangle")
+                        }
+                        Spacer()
+                        if let iconImageData, let uiImage = UIImage(data: iconImageData) {
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 40, height: 40)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                        }
+                    }
+
+                    if iconImageData != nil {
+                        Button("Remove Custom Icon", role: .destructive) {
+                            iconImageData = nil
+                            selectedPhotoItem = nil
+                        }
+                    }
+                }
+                .onChange(of: selectedPhotoItem) { _, newItem in
+                    Task {
+                        if let data = try? await newItem?.loadTransferable(type: Data.self) {
+                            iconImageData = data
+                        }
+                    }
                 }
 
                 Section("Appearance") {
@@ -255,6 +291,7 @@ struct EditCouponView: View {
         updated.labelColor = CouponColor(red: lbRed, green: lbGreen, blue: lbBlue)
         updated.category = category
         updated.iconName = iconName
+        updated.iconImageData = iconImageData
         updated.termsAndConditions = termsAndConditions
         store.updateCoupon(updated)
 

@@ -7,6 +7,8 @@
 
 import SwiftUI
 import PassKit
+import PhotosUI
+import UIKit
 
 struct CreateCouponView: View {
     @Environment(CouponStore.self) private var store
@@ -34,6 +36,8 @@ struct CreateCouponView: View {
     @State private var iconName = "tag.fill"
     @State private var termsAndConditions = ""
     @State private var showIconPicker = false
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var iconImageData: Data?
 
     @State private var isCreating = false
     @State private var passToAdd: PKPass?
@@ -82,6 +86,37 @@ struct CreateCouponView: View {
                 // Icon picker
                 Section("Icon") {
                     iconPickerSection
+
+                    Divider()
+
+                    // Custom icon upload
+                    HStack {
+                        PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                            Label("Upload Custom Icon", systemImage: "photo.on.rectangle")
+                        }
+                        Spacer()
+                        if let iconImageData, let uiImage = UIImage(data: iconImageData) {
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 40, height: 40)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                        }
+                    }
+
+                    if iconImageData != nil {
+                        Button("Remove Custom Icon", role: .destructive) {
+                            iconImageData = nil
+                            selectedPhotoItem = nil
+                        }
+                    }
+                }
+                .onChange(of: selectedPhotoItem) { _, newItem in
+                    Task {
+                        if let data = try? await newItem?.loadTransferable(type: Data.self) {
+                            iconImageData = data
+                        }
+                    }
                 }
 
                 Section("Appearance") {
@@ -286,6 +321,7 @@ struct CreateCouponView: View {
             foregroundColor: CouponColor(red: fgRed, green: fgGreen, blue: fgBlue),
             category: category,
             iconName: iconName,
+            iconImageData: iconImageData,
             termsAndConditions: termsAndConditions
         )
         store.addCoupon(coupon)

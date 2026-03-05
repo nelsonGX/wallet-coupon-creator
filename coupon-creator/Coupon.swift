@@ -92,6 +92,7 @@ struct Coupon: Identifiable, Codable {
     var labelColor: CouponColor
     var category: CouponCategory
     var iconName: String
+    var iconImageData: Data?
     var termsAndConditions: String
 
     var isFullyUsed: Bool {
@@ -124,6 +125,7 @@ struct Coupon: Identifiable, Codable {
         labelColor: CouponColor = CouponColor(red: 1, green: 1, blue: 1),
         category: CouponCategory = .other,
         iconName: String = "tag.fill",
+        iconImageData: Data? = nil,
         termsAndConditions: String = ""
     ) {
         self.id = id
@@ -142,6 +144,7 @@ struct Coupon: Identifiable, Codable {
         self.labelColor = labelColor
         self.category = category
         self.iconName = iconName
+        self.iconImageData = iconImageData
         self.termsAndConditions = termsAndConditions
     }
 
@@ -150,7 +153,7 @@ struct Coupon: Identifiable, Codable {
         case id, title, description, discount, useCount, maxUse
         case isRechargeable, keepAfterUsedUp, createdDate, expirationDate
         case organizationName, backgroundColor, foregroundColor, labelColor
-        case category, iconName, termsAndConditions
+        case category, iconName, iconImageData, termsAndConditions
     }
 
     init(from decoder: Decoder) throws {
@@ -171,6 +174,7 @@ struct Coupon: Identifiable, Codable {
         labelColor = try container.decode(CouponColor.self, forKey: .labelColor)
         category = try container.decodeIfPresent(CouponCategory.self, forKey: .category) ?? .other
         iconName = try container.decodeIfPresent(String.self, forKey: .iconName) ?? "tag.fill"
+        iconImageData = try container.decodeIfPresent(Data.self, forKey: .iconImageData)
         termsAndConditions = try container.decodeIfPresent(String.self, forKey: .termsAndConditions) ?? ""
     }
 }

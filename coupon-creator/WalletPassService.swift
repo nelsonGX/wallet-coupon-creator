@@ -7,6 +7,7 @@
 
 import Foundation
 import PassKit
+import UIKit
 
 /// API client for the wallet coupon creator server
 enum WalletPassService {
@@ -75,13 +76,13 @@ enum WalletPassService {
     }
 
     /// Sign a new pass - returns .pkpass file data
-    static func signPass(for coupon: Coupon) async throws -> Data {
-        try await postRequest(endpoint: "/sign-pass", coupon: coupon)
+    static func signPass(for coupon: Coupon, icon: UIImage? = nil) async throws -> Data {
+        try await postRequest(endpoint: "/sign-pass", coupon: coupon, icon: icon)
     }
 
     /// Update an existing pass - returns updated .pkpass file data
-    static func updatePass(for coupon: Coupon) async throws -> Data {
-        try await postRequest(endpoint: "/update-pass", coupon: coupon)
+    static func updatePass(for coupon: Coupon, icon: UIImage? = nil) async throws -> Data {
+        try await postRequest(endpoint: "/update-pass", coupon: coupon, icon: icon)
     }
 
     /// Create a PKPass from raw .pkpass data
@@ -99,17 +100,39 @@ enum WalletPassService {
 
     // MARK: - Private
 
-    private static func postRequest(endpoint: String, coupon: Coupon) async throws -> Data {
+    private static func postRequest(endpoint: String, coupon: Coupon, icon: UIImage?) async throws -> Data {
         guard let url = URL(string: baseURL + endpoint) else {
             throw WalletPassError.invalidURL
         }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let body = makeRequest(from: coupon)
-        request.httpBody = try JSONEncoder().encode(body)
+        let boundary = UUID().uuidString
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+
+        let passRequest = makeRequest(from: coupon)
+        let jsonData = try JSONEncoder().encode(passRequest)
+
+        var body = Data()
+
+        // — data part (JSON string) —
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"data\"\r\n\r\n".data(using: .utf8)!)
+        body.append(jsonData)
+        body.append("\r\n".data(using: .utf8)!)
+
+        // — icon part (optional) —
+        if let icon, let pngData = icon.pngData() {
+            body.append("--\(boundary)\r\n".data(using: .utf8)!)
+            body.append("Content-Disposition: form-data; name=\"icon\"; filename=\"icon.png\"\r\n".data(using: .utf8)!)
+            body.append("Content-Type: image/png\r\n\r\n".data(using: .utf8)!)
+            body.append(pngData)
+            body.append("\r\n".data(using: .utf8)!)
+        }
+
+        body.append("--\(boundary)--\r\n".data(using: .utf8)!)
+        request.httpBody = body
 
         let (data, response) = try await URLSession.shared.data(for: request)
 
