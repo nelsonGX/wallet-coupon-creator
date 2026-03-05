@@ -30,6 +30,9 @@ struct EditCouponView: View {
     @State private var fgRed: Double
     @State private var fgGreen: Double
     @State private var fgBlue: Double
+    @State private var lbRed: Double
+    @State private var lbGreen: Double
+    @State private var lbBlue: Double
     @State private var category: CouponCategory
     @State private var iconName: String
     @State private var termsAndConditions: String
@@ -57,6 +60,9 @@ struct EditCouponView: View {
         _fgRed = State(initialValue: coupon.foregroundColor.red)
         _fgGreen = State(initialValue: coupon.foregroundColor.green)
         _fgBlue = State(initialValue: coupon.foregroundColor.blue)
+        _lbRed = State(initialValue: coupon.labelColor.red)
+        _lbGreen = State(initialValue: coupon.labelColor.green)
+        _lbBlue = State(initialValue: coupon.labelColor.blue)
         _category = State(initialValue: coupon.category)
         _iconName = State(initialValue: coupon.iconName)
         _termsAndConditions = State(initialValue: coupon.termsAndConditions)
@@ -111,6 +117,7 @@ struct EditCouponView: View {
                 Section("Appearance") {
                     ColorPicker("Background Color", selection: backgroundColorBinding)
                     ColorPicker("Text Color", selection: foregroundColorBinding)
+                    ColorPicker("Title Color", selection: labelColorBinding)
                 }
             }
             .navigationTitle("Edit Coupon")
@@ -191,6 +198,7 @@ struct EditCouponView: View {
             organizationName: organizationName,
             backgroundColor: CouponColor(red: bgRed, green: bgGreen, blue: bgBlue),
             foregroundColor: CouponColor(red: fgRed, green: fgGreen, blue: fgBlue),
+            labelColor: CouponColor(red: lbRed, green: lbGreen, blue: lbBlue),
             category: category,
             iconName: iconName
         ))
@@ -223,6 +231,19 @@ struct EditCouponView: View {
             }
         )
     }
+    
+    private var labelColorBinding: Binding<Color> {
+        Binding(
+            get: { Color(red: lbRed, green: lbGreen, blue: lbBlue) },
+            set: { newColor in
+                if let components = newColor.cgColor?.components, components.count >= 3 {
+                    lbRed = Double(components[0])
+                    lbGreen = Double(components[1])
+                    lbBlue = Double(components[2])
+                }
+            }
+        )
+    }
 
     // MARK: - Save
 
@@ -239,6 +260,7 @@ struct EditCouponView: View {
         updated.organizationName = organizationName
         updated.backgroundColor = CouponColor(red: bgRed, green: bgGreen, blue: bgBlue)
         updated.foregroundColor = CouponColor(red: fgRed, green: fgGreen, blue: fgBlue)
+        updated.labelColor = CouponColor(red: lbRed, green: lbGreen, blue: lbBlue)
         updated.category = category
         updated.iconName = iconName
         updated.termsAndConditions = termsAndConditions
