@@ -8,48 +8,42 @@
 import SwiftUI
 import Vision
 import VisionKit
-import PassKit
 
 struct ScannerView: View {
     @Environment(CouponStore.self) private var store
 
-    @State private var scannedCoupon: Coupon?
-    @State private var showScannedCoupon = false
+    @State private var scannedCouponID: UUID?
     @State private var scanError: String?
     @State private var showError = false
     @State private var isScannerActive = true
 
     var body: some View {
         NavigationStack {
-            VStack {
+            ZStack {
                 if DataScannerViewController.isSupported {
-                    ZStack {
-                        DataScannerRepresentable(
-                            onScan: handleScan,
-                            isActive: isScannerActive
-                        )
-                        .ignoresSafeArea()
+                    DataScannerRepresentable(
+                        onScan: handleScan,
+                        isActive: isScannerActive
+                    )
+                    .ignoresSafeArea()
 
-                        scanOverlay
-                    }
+                    scanOverlay
                 } else {
                     unsupportedView
                 }
             }
             .navigationTitle("Scan Coupon")
             .navigationBarTitleDisplayMode(.inline)
-            .sheet(isPresented: $showScannedCoupon, onDismiss: {
-                scannedCoupon = nil
-                isScannerActive = true
-            }) {
-                if let coupon = scannedCoupon {
-                    ScannedCouponSheet(coupon: coupon)
-                }
+            .navigationDestination(item: $scannedCouponID) { couponID in
+                ScannedCouponPage(couponID: couponID)
             }
             .alert("Scan Error", isPresented: $showError) {
                 Button("OK") { isScannerActive = true }
             } message: {
                 Text(scanError ?? "Unable to read QR code")
+            }
+            .onChange(of: scannedCouponID) { _, newValue in
+                isScannerActive = (newValue == nil)
             }
         }
     }
@@ -57,16 +51,25 @@ struct ScannerView: View {
     private var scanOverlay: some View {
         VStack {
             Spacer()
+
+            // Viewfinder frame
+            RoundedRectangle(cornerRadius: 16)
+                .strokeBorder(.white.opacity(0.6), lineWidth: 2)
+                .frame(width: 240, height: 240)
+                .background(.clear)
+
+            Spacer()
+
             VStack(spacing: 8) {
                 Image(systemName: "qrcode.viewfinder")
-                    .font(.system(size: 40))
+                    .font(.system(size: 32))
                     .foregroundStyle(.white)
                 Text("Point camera at a coupon QR code")
                     .font(.subheadline)
                     .foregroundStyle(.white)
             }
             .padding()
-            .background(.black.opacity(0.6))
+            .background(.ultraThinMaterial)
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .padding(.bottom, 40)
         }
@@ -81,15 +84,14 @@ struct ScannerView: View {
     }
 
     private func handleScan(_ payload: String) {
-        guard scannedCoupon == nil else { return }
-
-        isScannerActive = false
+        guard scannedCouponID == nil else { return }
 
         if let couponID = UUID(uuidString: payload),
-           let coupon = store.findCoupon(byID: couponID) {
-            scannedCoupon = coupon
-            showScannedCoupon = true
+           store.findCoupon(byID: couponID) != nil {
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            scannedCouponID = couponID
         } else {
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
             scanError = UUID(uuidString: payload) != nil
                 ? "This coupon is not in your library."
                 : "This QR code doesn't contain valid coupon data."
@@ -149,7 +151,9 @@ struct DataScannerRepresentable: UIViewControllerRepresentable {
                     if let payload = barcode.payloadStringValue {
                         hasScanned = true
                         dataScanner.stopScanning()
-                        onScan(payload)
+                        DispatchQueue.main.async {
+                            self.onScan(payload)
+                        }
                         return
                     }
                 default:
@@ -160,175 +164,182 @@ struct DataScannerRepresentable: UIViewControllerRepresentable {
     }
 }
 
-// MARK: - Scanned Coupon Sheet
+// MARK: - Scanned Coupon Page (pushed, not a sheet)
 
-struct ScannedCouponSheet: View {
+struct ScannedCouponPage: View {
     @Environment(CouponStore.self) private var store
     @Environment(\.dismiss) private var dismiss
 
-    let coupon: Coupon
+    let couponID: UUID
 
     @State private var showRedeemConfirm = false
     @State private var showRechargeConfirm = false
     @State private var showEditSheet = false
-    @State private var passToAdd: PKPass?
     @State private var isLoading = false
-    @State private var errorMessage: String?
-    @State private var showErrorAlert = false
-    @State private var redeemResult: String?
+    @State private var resultMessage: String?
     @State private var showResult = false
+    @State private var showSuccessCheck = true
 
-    private var currentCoupon: Coupon {
-        store.coupons.first(where: { $0.id == coupon.id }) ?? coupon
+    private var coupon: Coupon {
+        store.coupons.first(where: { $0.id == couponID }) ?? Coupon(title: "Unknown")
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 20) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 50))
-                        .foregroundStyle(.green)
-
-                    Text("Coupon Scanned")
-                        .font(.title2)
-                        .fontWeight(.bold)
-
-                    CouponCardView(coupon: currentCoupon)
-
-                    // Usage info
+        ScrollView {
+            VStack(spacing: 24) {
+                // Success header
+                if showSuccessCheck {
                     VStack(spacing: 8) {
-                        HStack {
-                            Text("Uses")
-                            Spacer()
-                            Text("\(currentCoupon.useCount) / \(currentCoupon.maxUse)")
-                        }
-                        ProgressView(value: Double(currentCoupon.useCount), total: Double(currentCoupon.maxUse))
-                            .tint(currentCoupon.isFullyUsed ? .red : .green)
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 56))
+                            .foregroundStyle(.green)
+                            .symbolEffect(.bounce, value: showSuccessCheck)
+
+                        Text("Coupon Found")
+                            .font(.title2)
+                            .fontWeight(.bold)
                     }
-                    .padding()
-                    .background(.regularMaterial)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .padding(.horizontal)
+                    .padding(.top, 8)
+                    .transition(.opacity)
+                }
 
-                    // Actions
-                    VStack(spacing: 12) {
-                        if !currentCoupon.isFullyUsed {
-                            Button {
-                                showRedeemConfirm = true
-                            } label: {
-                                if isLoading {
-                                    ProgressView()
-                                        .frame(maxWidth: .infinity)
-                                } else {
-                                    Label("Redeem (Use 1)", systemImage: "minus.circle")
-                                        .frame(maxWidth: .infinity)
-                                }
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .tint(.orange)
-                            .disabled(isLoading)
-                        }
+                CouponCardView(coupon: coupon)
 
-                        if currentCoupon.isRechargeable && currentCoupon.useCount > 0 {
-                            Button {
-                                showRechargeConfirm = true
-                            } label: {
-                                Label("Recharge", systemImage: "arrow.circlepath")
+                // Usage info
+                VStack(spacing: 8) {
+                    HStack {
+                        Text("Uses")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text("\(coupon.useCount) / \(coupon.maxUse)")
+                            .fontWeight(.semibold)
+                    }
+                    ProgressView(value: Double(coupon.useCount), total: Double(coupon.maxUse))
+                        .tint(coupon.isFullyUsed ? .red : .green)
+                }
+                .padding()
+                .background(.regularMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .padding(.horizontal)
+
+                // Actions
+                VStack(spacing: 12) {
+                    if !coupon.isFullyUsed && !coupon.isExpired {
+                        Button {
+                            showRedeemConfirm = true
+                        } label: {
+                            if isLoading {
+                                ProgressView()
+                                    .frame(maxWidth: .infinity)
+                            } else {
+                                Label("Redeem (Use 1)", systemImage: "minus.circle")
                                     .frame(maxWidth: .infinity)
                             }
-                            .buttonStyle(.bordered)
-                            .disabled(isLoading)
                         }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.orange)
+                        .controlSize(.large)
+                        .disabled(isLoading)
+                    } else if coupon.isExpired {
+                        Label("Expired", systemImage: "clock.badge.xmark")
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Label("Fully Used", systemImage: "xmark.circle")
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .foregroundStyle(.secondary)
+                    }
 
+                    if coupon.isRechargeable && coupon.useCount > 0 {
                         Button {
-                            showEditSheet = true
+                            showRechargeConfirm = true
                         } label: {
-                            Label("Edit Coupon", systemImage: "pencil")
+                            Label("Recharge", systemImage: "arrow.circlepath")
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.bordered)
+                        .controlSize(.large)
+                        .disabled(isLoading)
                     }
-                    .padding(.horizontal)
+
+                    Button {
+                        showEditSheet = true
+                    } label: {
+                        Label("Edit Coupon", systemImage: "pencil")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
                 }
-                .padding(.vertical)
+                .padding(.horizontal)
             }
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
-            .alert("Redeem Coupon", isPresented: $showRedeemConfirm) {
-                Button("Redeem", role: .destructive) {
-                    redeemCoupon()
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("Use one redemption of \"\(currentCoupon.title)\"?")
-            }
-            .alert("Recharge Coupon", isPresented: $showRechargeConfirm) {
-                Button("Recharge") {
-                    rechargeCoupon()
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("Reset usage count to 0?")
-            }
-            .alert("Result", isPresented: $showResult) {
-                Button("OK") {}
-            } message: {
-                Text(redeemResult ?? "")
-            }
-            .alert("Error", isPresented: $showErrorAlert) {
-                Button("OK") {}
-            } message: {
-                Text(errorMessage ?? "An unknown error occurred")
-            }
-            .sheet(isPresented: $showEditSheet) {
-                EditCouponView(coupon: currentCoupon)
-            }
-            .sheet(item: $passToAdd) { pass in
-                WalletPassSheet(pass: pass) { _ in
-                    passToAdd = nil
+            .padding(.vertical)
+        }
+        .navigationTitle("Scanned Coupon")
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button {
+                    dismiss()
+                } label: {
+                    Label("Scan Again", systemImage: "qrcode.viewfinder")
                 }
             }
+        }
+        .alert("Redeem Coupon", isPresented: $showRedeemConfirm) {
+            Button("Redeem", role: .destructive) {
+                redeemCoupon()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Use one redemption of \"\(coupon.title)\"?")
+        }
+        .alert("Recharge Coupon", isPresented: $showRechargeConfirm) {
+            Button("Recharge") {
+                rechargeCoupon()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Reset usage count to 0?")
+        }
+        .alert("Result", isPresented: $showResult) {
+            Button("OK") {}
+        } message: {
+            Text(resultMessage ?? "")
+        }
+        .sheet(isPresented: $showEditSheet) {
+            EditCouponView(coupon: coupon)
         }
     }
 
     private func redeemCoupon() {
         isLoading = true
-        Task {
-            do {
-                let pass = try await store.useCouponAndUpdatePass(currentCoupon)
-                redeemResult = "Coupon redeemed! Updated pass ready."
-                showResult = true
-                passToAdd = pass
-            } catch {
-                // Still try local-only use if server fails
-                let success = store.useCoupon(currentCoupon)
-                redeemResult = success
-                    ? "Coupon redeemed locally. Server update failed: \(error.localizedDescription)"
-                    : "Could not redeem coupon."
-                showResult = true
-            }
-            isLoading = false
+        let success = store.useCoupon(coupon)
+        if success {
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            resultMessage = "Coupon redeemed! \(coupon.remainingUses - 1) uses remaining."
+        } else {
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+            resultMessage = "Could not redeem coupon."
         }
+        showResult = true
+        isLoading = false
     }
 
     private func rechargeCoupon() {
         isLoading = true
-        Task {
-            do {
-                let pass = try await store.rechargeCouponAndUpdatePass(currentCoupon)
-                redeemResult = "Coupon recharged! Updated pass ready."
-                showResult = true
-                passToAdd = pass
-            } catch {
-                _ = store.rechargeCoupon(currentCoupon)
-                redeemResult = "Coupon recharged locally. Server update failed: \(error.localizedDescription)"
-                showResult = true
-            }
-            isLoading = false
+        let success = store.rechargeCoupon(coupon)
+        if success {
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            resultMessage = "Coupon recharged to full."
+        } else {
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+            resultMessage = "Could not recharge coupon."
         }
+        showResult = true
+        isLoading = false
     }
 }

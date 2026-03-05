@@ -44,6 +44,11 @@ class CouponStore {
         save()
     }
 
+    func deleteCoupons(withIDs ids: Set<UUID>) {
+        coupons.removeAll { ids.contains($0.id) }
+        save()
+    }
+
     /// Use a coupon once, returns true if successful
     func useCoupon(_ coupon: Coupon) -> Bool {
         guard let index = coupons.firstIndex(where: { $0.id == coupon.id }) else {
