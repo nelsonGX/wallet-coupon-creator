@@ -9,9 +9,12 @@ import SwiftUI
 
 @main
 struct coupon_creatorApp: App {
+    @State private var couponStore = CouponStore()
+
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environment(couponStore)
         }
     }
 }
