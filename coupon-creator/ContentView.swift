@@ -8,20 +8,29 @@
 import SwiftUI
 
 struct ContentView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @State private var showCreateSheet = false
+    @State private var selectedTab = 0
+    @State private var isScannerEnabled = false
 
     var body: some View {
-        TabView {
-            Tab("My Coupons", systemImage: "ticket") {
+        TabView(selection: $selectedTab) {
+            Tab("My Coupons", systemImage: "ticket", value: 0) {
                 MyCouponsView(showCreateSheet: $showCreateSheet)
             }
-            Tab("Scan", systemImage: "qrcode.viewfinder") {
-                ScannerView()
+            Tab("Scan", systemImage: "qrcode.viewfinder", value: 1) {
+                ScannerView(isScannerEnabled: isScannerEnabled)
             }
         }
+        .onChange(of: selectedTab) { updateScannerEnabled() }
+        .onChange(of: scenePhase) { updateScannerEnabled() }
         .sheet(isPresented: $showCreateSheet) {
             CreateCouponView()
         }
+    }
+
+    private func updateScannerEnabled() {
+        isScannerEnabled = selectedTab == 1 && scenePhase == .active
     }
 }
 

@@ -12,24 +12,48 @@ import VisionKit
 struct ScannerView: View {
     @Environment(CouponStore.self) private var store
 
+    var isScannerEnabled: Bool
+
     @State private var scannedCouponID: UUID?
     @State private var scanError: String?
     @State private var showError = false
     @State private var isScannerActive = true
 
+    // Fast scan mode
+    @State private var isFastScan = false
+    @State private var preventDuplicates = true
+    @State private var fastScanSessionIDs: Set<UUID> = []
+    @State private var toastMessage: String?
+    @State private var toastIsError = false
+    @State private var fastScanCount = 0
+
     var body: some View {
         NavigationStack {
             ZStack {
                 if DataScannerViewController.isSupported {
-                    DataScannerRepresentable(
-                        onScan: handleScan,
-                        isActive: isScannerActive
-                    )
-                    .ignoresSafeArea()
+                    if isScannerEnabled {
+                        DataScannerRepresentable(
+                            onScan: handleScan,
+                            isActive: isScannerActive
+                        )
+                        .ignoresSafeArea()
+                    } else {
+                        Color.black.ignoresSafeArea()
+                    }
 
                     scanOverlay
                 } else {
                     unsupportedView
+                }
+
+                // Toast overlay for fast scan feedback
+                if let message = toastMessage {
+                    VStack {
+                        fastScanToast(message: message, isError: toastIsError)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                        Spacer()
+                    }
+                    .animation(.easeInOut(duration: 0.3), value: toastMessage)
                 }
             }
             .navigationTitle("Scan Coupon")
@@ -50,6 +74,45 @@ struct ScannerView: View {
 
     private var scanOverlay: some View {
         VStack {
+            // Fast scan controls at top
+            VStack(spacing: 8) {
+                Toggle(isOn: $isFastScan) {
+                    Label("Fast Scan", systemImage: "bolt.fill")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(.white)
+                }
+                .toggleStyle(.switch)
+                .tint(.orange)
+                .onChange(of: isFastScan) { _, newValue in
+                    if newValue {
+                        // Reset session when entering fast scan
+                        fastScanSessionIDs.removeAll()
+                        fastScanCount = 0
+                    }
+                }
+
+                if isFastScan {
+                    Toggle(isOn: $preventDuplicates) {
+                        Label("Prevent Duplicates", systemImage: "shield.fill")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.9))
+                    }
+                    .toggleStyle(.switch)
+                    .tint(.blue)
+
+                    if fastScanCount > 0 {
+                        Text("\(fastScanCount) scanned this session")
+                            .font(.caption2)
+                            .foregroundStyle(.white.opacity(0.7))
+                    }
+                }
+            }
+            .padding()
+            .background(.ultraThinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .padding(.horizontal)
+            .padding(.top, 8)
+
             Spacer()
 
             // Viewfinder frame
@@ -61,10 +124,10 @@ struct ScannerView: View {
             Spacer()
 
             VStack(spacing: 8) {
-                Image(systemName: "qrcode.viewfinder")
+                Image(systemName: isFastScan ? "bolt.fill" : "qrcode.viewfinder")
                     .font(.system(size: 32))
-                    .foregroundStyle(.white)
-                Text("Point camera at a coupon QR code")
+                    .foregroundStyle(isFastScan ? .orange : .white)
+                Text(isFastScan ? "Fast scan: auto-redeem on scan" : "Point camera at a coupon QR code")
                     .font(.subheadline)
                     .foregroundStyle(.white)
             }
@@ -73,6 +136,21 @@ struct ScannerView: View {
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .padding(.bottom, 40)
         }
+    }
+
+    private func fastScanToast(message: String, isError: Bool) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: isError ? "xmark.circle.fill" : "checkmark.circle.fill")
+                .foregroundStyle(isError ? .red : .green)
+            Text(message)
+                .font(.subheadline.weight(.medium))
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(isError ? Color.red.opacity(0.15) : Color.green.opacity(0.15))
+        .background(.ultraThinMaterial)
+        .clipShape(Capsule())
+        .padding(.top, 60)
     }
 
     private var unsupportedView: some View {
@@ -84,6 +162,14 @@ struct ScannerView: View {
     }
 
     private func handleScan(_ payload: String) {
+        if isFastScan {
+            handleFastScan(payload)
+        } else {
+            handleNormalScan(payload)
+        }
+    }
+
+    private func handleNormalScan(_ payload: String) {
         guard scannedCouponID == nil else { return }
 
         if let couponID = UUID(uuidString: payload),
@@ -96,6 +182,90 @@ struct ScannerView: View {
                 ? "This coupon is not in your library."
                 : "This QR code doesn't contain valid coupon data."
             showError = true
+        }
+    }
+
+    private func handleFastScan(_ payload: String) {
+        guard let couponID = UUID(uuidString: payload) else {
+            showFastScanToast("Invalid QR code", isError: true)
+            resumeScanning()
+            return
+        }
+
+        guard let coupon = store.findCoupon(byID: couponID) else {
+            showFastScanToast("Coupon not in library", isError: true)
+            resumeScanning()
+            return
+        }
+
+        // Duplicate prevention
+        if preventDuplicates && fastScanSessionIDs.contains(couponID) {
+            UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            showFastScanToast("Already scanned: \(coupon.title)", isError: true)
+            resumeScanning()
+            return
+        }
+
+        // Check if usable
+        if coupon.isFullyUsed {
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+            showFastScanToast("Fully used: \(coupon.title)", isError: true)
+            resumeScanning()
+            return
+        }
+
+        if coupon.isExpired {
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+            showFastScanToast("Expired: \(coupon.title)", isError: true)
+            resumeScanning()
+            return
+        }
+
+        // Redeem immediately
+        fastScanSessionIDs.insert(couponID)
+        fastScanCount += 1
+
+        Task {
+            do {
+                _ = try await store.useCouponAndUpdatePass(coupon)
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                let updated = store.findCoupon(byID: couponID)
+                let remaining = updated?.remainingUses ?? 0
+                showFastScanToast("\(coupon.title) — \(remaining) left", isError: false)
+            } catch {
+                // Coupon was used locally even if pass update failed
+                UINotificationFeedbackGenerator().notificationOccurred(.warning)
+                let updated = store.findCoupon(byID: couponID)
+                let remaining = updated?.remainingUses ?? 0
+                showFastScanToast("\(coupon.title) — \(remaining) left (pass sync failed)", isError: false)
+            }
+            resumeScanning()
+        }
+    }
+
+    private func showFastScanToast(_ message: String, isError: Bool) {
+        withAnimation {
+            toastMessage = message
+            toastIsError = isError
+        }
+        // Auto-dismiss toast
+        Task {
+            try? await Task.sleep(for: .seconds(1.5))
+            withAnimation {
+                if toastMessage == message {
+                    toastMessage = nil
+                }
+            }
+        }
+    }
+
+    private func resumeScanning() {
+        // Brief delay before reactivating to avoid re-scanning the same code
+        Task {
+            try? await Task.sleep(for: .milliseconds(800))
+            isScannerActive = false
+            try? await Task.sleep(for: .milliseconds(100))
+            isScannerActive = true
         }
     }
 }
@@ -129,6 +299,10 @@ struct DataScannerRepresentable: UIViewControllerRepresentable {
                 uiViewController.stopScanning()
             }
         }
+    }
+
+    static func dismantleUIViewController(_ uiViewController: DataScannerViewController, coordinator: Coordinator) {
+        uiViewController.stopScanning()
     }
 
     func makeCoordinator() -> Coordinator {
