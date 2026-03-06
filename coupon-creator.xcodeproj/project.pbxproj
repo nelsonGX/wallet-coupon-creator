@@ -15,9 +15,22 @@
 		52B6C7A72F596F2200A2CB78 /* coupon-creator.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "coupon-creator.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		52AA00A22F5B092D00389792 /* Exceptions for "coupon-creator" folder in "coupon-creator" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 52B6C7A62F596F2200A2CB78 /* coupon-creator */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		52B6C7A92F596F2200A2CB78 /* coupon-creator */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				52AA00A22F5B092D00389792 /* Exceptions for "coupon-creator" folder in "coupon-creator" target */,
+			);
 			path = "coupon-creator";
 			sourceTree = "<group>";
 		};
@@ -273,7 +286,9 @@
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "coupon-creator/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Coupon Creator";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSCameraUsageDescription = "This app needs camera access to scan coupon ​QR codes.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
@@ -330,7 +345,9 @@
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "coupon-creator/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Coupon Creator";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSCameraUsageDescription = "This app needs camera access to scan coupon ​QR codes.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
