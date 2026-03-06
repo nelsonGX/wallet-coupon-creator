@@ -81,17 +81,23 @@ class CouponStore {
 
     // MARK: - Wallet Pass Integration
 
-    /// Sign a new pass and return a PKPass ready to add to wallet
+    /// Sign a new pass, store the auth token, and return a PKPass ready to add to wallet
     func signWalletPass(for coupon: Coupon) async throws -> PKPass {
         let icon = coupon.iconImageData.flatMap { UIImage(data: $0) }
-        let data = try await WalletPassService.signPass(for: coupon, icon: icon)
-        return try WalletPassService.createPKPass(from: data)
+        let result = try await WalletPassService.signPass(for: coupon, icon: icon)
+        // Save the auth token for future updates
+        if let token = result.authToken,
+           let index = coupons.firstIndex(where: { $0.id == coupon.id }) {
+            coupons[index].authToken = token
+            save()
+        }
+        return try WalletPassService.createPKPass(from: result.passData)
     }
 
     /// Update a pass on the server and return a PKPass ready to add to wallet
     func updateWalletPass(for coupon: Coupon) async throws -> PKPass {
         let icon = coupon.iconImageData.flatMap { UIImage(data: $0) }
-        let data = try await WalletPassService.updatePass(for: coupon, icon: icon)
+        let data = try await WalletPassService.updatePass(for: coupon, icon: icon, authToken: coupon.authToken)
         return try WalletPassService.createPKPass(from: data)
     }
 

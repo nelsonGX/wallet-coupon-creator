@@ -40,6 +40,14 @@ struct CreateCouponView: View {
     @State private var iconImageData: Data?
     @State private var imageToCrop: UIImage?
 
+    // Lock screen fields
+    @State private var hasRelevantDate = false
+    @State private var relevantDate = Date()
+    @State private var locations: [PassLocation] = []
+    @State private var ibeacons: [PassiBeacon] = []
+    @State private var locationToEdit: PassLocation?
+    @State private var showLocationPicker = false
+
     @State private var isCreating = false
     @State private var passToAdd: PKPass?
     @State private var errorMessage: String?
@@ -84,6 +92,8 @@ struct CreateCouponView: View {
                     }
                 }
 
+                lockScreenSections
+
                 // Icon picker
                 Section("Icon") {
                     iconPickerSection
@@ -125,6 +135,7 @@ struct CreateCouponView: View {
                     ColorPicker("Title Color", selection: labelColorBinding)
                 }
             }
+            .scrollDismissesKeyboard(.interactively)
             .navigationTitle("Create Coupon")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -164,6 +175,110 @@ struct CreateCouponView: View {
                     }
                 }
             }
+            .sheet(isPresented: $showLocationPicker) {
+                LocationPickerView(existing: locationToEdit) { saved in
+                    if let index = locations.firstIndex(where: { $0.id == saved.id }) {
+                        locations[index] = saved
+                    } else {
+                        locations.append(saved)
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Lock Screen Sections
+
+    @ViewBuilder
+    private var lockScreenSections: some View {
+        Section {
+            Toggle("Show on Lock Screen at Date", isOn: $hasRelevantDate)
+            if hasRelevantDate {
+                DatePicker("Date & Time", selection: $relevantDate, displayedComponents: [.date, .hourAndMinute])
+            }
+        } header: {
+            Text("Lock Screen — Relevant Date")
+        } footer: {
+            Text("The pass will appear on the lock screen at this time.")
+        }
+
+        Section {
+            ForEach(locations) { loc in
+                Button {
+                    locationToEdit = loc
+                    showLocationPicker = true
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(String(format: "%.4f, %.4f", loc.latitude, loc.longitude))
+                                .font(.footnote.monospaced())
+                            if !loc.relevantText.isEmpty {
+                                Text(loc.relevantText)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                .tint(.primary)
+            }
+            .onDelete { offsets in
+                locations.remove(atOffsets: offsets)
+            }
+
+            if locations.count < 10 {
+                Button {
+                    locationToEdit = nil
+                    showLocationPicker = true
+                } label: {
+                    Label("Add Location", systemImage: "mappin.and.ellipse")
+                }
+            }
+        } header: {
+            Text("Lock Screen — Locations")
+        } footer: {
+            Text("Pass appears when within ~100 m of a location. Max 10.")
+        }
+
+        Section {
+            ForEach($ibeacons) { $beacon in
+                VStack(alignment: .leading, spacing: 6) {
+                    TextField("Proximity UUID", text: $beacon.proximityUUID)
+                        .textInputAutocapitalization(.characters)
+                        .autocorrectionDisabled()
+                    HStack {
+                        Text("Major")
+                            .foregroundStyle(.secondary)
+                        TextField("Optional", value: $beacon.major, format: .number)
+                            .keyboardType(.numberPad)
+                        Text("Minor")
+                            .foregroundStyle(.secondary)
+                        TextField("Optional", value: $beacon.minor, format: .number)
+                            .keyboardType(.numberPad)
+                    }
+                    TextField("Lock screen text (optional)", text: $beacon.relevantText)
+                }
+                .padding(.vertical, 4)
+            }
+            .onDelete { offsets in
+                ibeacons.remove(atOffsets: offsets)
+            }
+
+            if ibeacons.count < 10 {
+                Button {
+                    ibeacons.append(PassiBeacon(proximityUUID: "", relevantText: ""))
+                } label: {
+                    Label("Add iBeacon", systemImage: "sensor.tag.radiowaves.forward")
+                }
+            }
+        } header: {
+            Text("Lock Screen — iBeacons")
+        } footer: {
+            Text("Pass appears when a matching Bluetooth iBeacon is detected. Max 10.")
         }
     }
 
@@ -332,7 +447,10 @@ struct CreateCouponView: View {
             category: category,
             iconName: iconName,
             iconImageData: iconImageData,
-            termsAndConditions: termsAndConditions
+            termsAndConditions: termsAndConditions,
+            relevantDate: hasRelevantDate ? relevantDate : nil,
+            locations: locations,
+            ibeacons: ibeacons
         )
         store.addCoupon(coupon)
 

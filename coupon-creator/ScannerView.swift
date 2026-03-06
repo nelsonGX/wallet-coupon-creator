@@ -317,29 +317,35 @@ struct ScannedCouponPage: View {
 
     private func redeemCoupon() {
         isLoading = true
-        let success = store.useCoupon(coupon)
-        if success {
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
-            resultMessage = "Coupon redeemed! \(coupon.remainingUses - 1) uses remaining."
-        } else {
-            UINotificationFeedbackGenerator().notificationOccurred(.error)
-            resultMessage = "Could not redeem coupon."
+        Task {
+            do {
+                _ = try await store.useCouponAndUpdatePass(coupon)
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                resultMessage = "Coupon redeemed! Pass updated."
+            } catch {
+                // Local use already happened inside useCouponAndUpdatePass,
+                // so the coupon count is updated even if the server fails.
+                UINotificationFeedbackGenerator().notificationOccurred(.warning)
+                resultMessage = "Coupon redeemed locally. Pass update failed: \(error.localizedDescription)"
+            }
+            showResult = true
+            isLoading = false
         }
-        showResult = true
-        isLoading = false
     }
 
     private func rechargeCoupon() {
         isLoading = true
-        let success = store.rechargeCoupon(coupon)
-        if success {
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
-            resultMessage = "Coupon recharged to full."
-        } else {
-            UINotificationFeedbackGenerator().notificationOccurred(.error)
-            resultMessage = "Could not recharge coupon."
+        Task {
+            do {
+                _ = try await store.rechargeCouponAndUpdatePass(coupon)
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                resultMessage = "Coupon recharged! Pass updated."
+            } catch {
+                UINotificationFeedbackGenerator().notificationOccurred(.warning)
+                resultMessage = "Coupon recharged locally. Pass update failed: \(error.localizedDescription)"
+            }
+            showResult = true
+            isLoading = false
         }
-        showResult = true
-        isLoading = false
     }
 }

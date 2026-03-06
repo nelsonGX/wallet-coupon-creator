@@ -94,6 +94,11 @@ struct Coupon: Identifiable, Codable {
     var iconName: String
     var iconImageData: Data?
     var termsAndConditions: String
+    var relevantDate: Date?
+    var locations: [PassLocation]
+    var ibeacons: [PassiBeacon]
+    /// Authentication token returned by the server when the pass is first signed
+    var authToken: String?
 
     var isFullyUsed: Bool {
         useCount >= maxUse
@@ -126,7 +131,11 @@ struct Coupon: Identifiable, Codable {
         category: CouponCategory = .other,
         iconName: String = "tag.fill",
         iconImageData: Data? = nil,
-        termsAndConditions: String = ""
+        termsAndConditions: String = "",
+        relevantDate: Date? = nil,
+        locations: [PassLocation] = [],
+        ibeacons: [PassiBeacon] = [],
+        authToken: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -146,6 +155,10 @@ struct Coupon: Identifiable, Codable {
         self.iconName = iconName
         self.iconImageData = iconImageData
         self.termsAndConditions = termsAndConditions
+        self.relevantDate = relevantDate
+        self.locations = locations
+        self.ibeacons = ibeacons
+        self.authToken = authToken
     }
 
     // Custom decoding to handle existing coupons without new fields
@@ -154,6 +167,7 @@ struct Coupon: Identifiable, Codable {
         case isRechargeable, keepAfterUsedUp, createdDate, expirationDate
         case organizationName, backgroundColor, foregroundColor, labelColor
         case category, iconName, iconImageData, termsAndConditions
+        case relevantDate, locations, ibeacons, authToken
     }
 
     init(from decoder: Decoder) throws {
@@ -176,6 +190,10 @@ struct Coupon: Identifiable, Codable {
         iconName = try container.decodeIfPresent(String.self, forKey: .iconName) ?? "tag.fill"
         iconImageData = try container.decodeIfPresent(Data.self, forKey: .iconImageData)
         termsAndConditions = try container.decodeIfPresent(String.self, forKey: .termsAndConditions) ?? ""
+        relevantDate = try container.decodeIfPresent(Date.self, forKey: .relevantDate)
+        locations = try container.decodeIfPresent([PassLocation].self, forKey: .locations) ?? []
+        ibeacons = try container.decodeIfPresent([PassiBeacon].self, forKey: .ibeacons) ?? []
+        authToken = try container.decodeIfPresent(String.self, forKey: .authToken)
     }
 }
 
@@ -184,5 +202,29 @@ struct CouponColor: Codable {
     var green: Double
     var blue: Double
 }
+
+struct PassLocation: Codable, Identifiable, Equatable {
+    var id = UUID()
+    var latitude: Double
+    var longitude: Double
+    var altitude: Double?
+    var relevantText: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, latitude, longitude, altitude, relevantText
+    }
+}
+struct PassiBeacon: Codable, Identifiable, Equatable {
+    var id = UUID()
+    var proximityUUID: String
+    var major: Int?
+    var minor: Int?
+    var relevantText: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, proximityUUID, major, minor, relevantText
+    }
+}
+
 
 

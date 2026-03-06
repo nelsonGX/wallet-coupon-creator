@@ -6,7 +6,12 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		52AA00842F5AFE8400389792 /* LocationPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52AA00832F5AFE8400389792 /* LocationPickerView.swift */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
+		52AA00832F5AFE8400389792 /* LocationPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationPickerView.swift; sourceTree = "<group>"; };
 		52B6C7A72F596F2200A2CB78 /* coupon-creator.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "coupon-creator.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -34,6 +39,7 @@
 			children = (
 				52B6C7A92F596F2200A2CB78 /* coupon-creator */,
 				52B6C7A82F596F2200A2CB78 /* Products */,
+				52AA00832F5AFE8400389792 /* LocationPickerView.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -119,6 +125,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				52AA00842F5AFE8400389792 /* LocationPickerView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -29,11 +29,28 @@ enum WalletPassService {
         let description: String
         let expirationDate: String?
         let termsAndConditions: String?
+        let relevantDate: String?
+        let locations: [LocationRequest]?
+        let ibeacons: [iBeaconRequest]?
 
         struct ColorComponents: Encodable {
             let red: Double
             let green: Double
             let blue: Double
+        }
+
+        struct LocationRequest: Encodable {
+            let latitude: Double
+            let longitude: Double
+            let altitude: Double?
+            let relevantText: String?
+        }
+
+        struct iBeaconRequest: Encodable {
+            let proximityUUID: String
+            let major: Int?
+            let minor: Int?
+            let relevantText: String?
         }
     }
 
@@ -71,18 +88,34 @@ enum WalletPassService {
             ),
             description: coupon.description,
             expirationDate: coupon.expirationDate.map { isoFormatter.string(from: $0) },
-            termsAndConditions: coupon.termsAndConditions.isEmpty ? nil : coupon.termsAndConditions
+            termsAndConditions: coupon.termsAndConditions.isEmpty ? nil : coupon.termsAndConditions,
+            relevantDate: coupon.relevantDate.map { isoFormatter.string(from: $0) },
+            locations: coupon.locations.isEmpty ? nil : coupon.locations.map {
+                .init(latitude: $0.latitude, longitude: $0.longitude, altitude: $0.altitude, relevantText: $0.relevantText.isEmpty ? nil : $0.relevantText)
+            },
+            ibeacons: coupon.ibeacons.isEmpty ? nil : coupon.ibeacons.map {
+                .init(proximityUUID: $0.proximityUUID, major: $0.major, minor: $0.minor, relevantText: $0.relevantText.isEmpty ? nil : $0.relevantText)
+            }
         )
     }
 
-    /// Sign a new pass - returns .pkpass file data
-    static func signPass(for coupon: Coupon, icon: UIImage? = nil) async throws -> Data {
-        try await postRequest(endpoint: "/sign-pass", coupon: coupon, icon: icon)
+    /// Result from signing a pass, includes the auth token for future updates
+    struct SignPassResult {
+        let passData: Data
+        let authToken: String?
+    }
+
+    /// Sign a new pass - returns .pkpass file data and the auth token from the response header
+    static func signPass(for coupon: Coupon, icon: UIImage? = nil) async throws -> SignPassResult {
+        let (data, response) = try await postRequest(endpoint: "/sign-pass", coupon: coupon, icon: icon)
+        let authToken = (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "X-Pass-Auth-Token")
+        return SignPassResult(passData: data, authToken: authToken)
     }
 
     /// Update an existing pass - returns updated .pkpass file data
-    static func updatePass(for coupon: Coupon, icon: UIImage? = nil) async throws -> Data {
-        try await postRequest(endpoint: "/update-pass", coupon: coupon, icon: icon)
+    static func updatePass(for coupon: Coupon, icon: UIImage? = nil, authToken: String? = nil) async throws -> Data {
+        let (data, _) = try await postRequest(endpoint: "/update-pass", coupon: coupon, icon: icon, authToken: authToken)
+        return data
     }
 
     /// Create a PKPass from raw .pkpass data
@@ -127,13 +160,17 @@ enum WalletPassService {
 
     // MARK: - Private
 
-    private static func postRequest(endpoint: String, coupon: Coupon, icon: UIImage?) async throws -> Data {
+    private static func postRequest(endpoint: String, coupon: Coupon, icon: UIImage?, authToken: String? = nil) async throws -> (Data, URLResponse) {
         guard let url = URL(string: baseURL + endpoint) else {
             throw WalletPassError.invalidURL
         }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
+
+        if let authToken {
+            request.setValue("ApplePass \(authToken)", forHTTPHeaderField: "Authorization")
+        }
 
         let boundary = UUID().uuidString
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
@@ -172,7 +209,7 @@ enum WalletPassService {
             throw WalletPassError.serverError(statusCode: httpResponse.statusCode, message: errorBody)
         }
 
-        return data
+        return (data, response)
     }
 }
 
